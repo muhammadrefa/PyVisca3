@@ -1,30 +1,27 @@
-PyVisca
+PyVisca-3
 =======
 
-Reimplementation of libvisca in python to control Cameras via the serial line visca protocol
+Fork of https://github.com/mutax/PyVisca. I had troubles using the 
+original PyVisca from Python3, mainly for the way pyserial needs to 
+handle bytes and byte arrays. I had major pains in many cases where
+the original lib was using chr()/ord() to perform conversion.
+
+I found that by switching entirely to a "bytes" python type 
+representation my life was easier.
+
+The camera reference in my case is SONY FCB-EV7500 and many commands
+have been rewritten to work with this camera. 
+
+In addition to command string, I have added implemented some nquiry 
+strings to be able to read camera settings.
+
+This is not a comprehensive implementation of ALL camera functionalities
+but just of what was needed for my project, some commands may still be
+missing.
+
+Not Working
+=======
+Register setting seems not to be applied even after a power-off/on cycle
+unless you physically switch the camera off/on.
 
 
-Why?
-----
-
-I found a SONY EVI-D100P in the trash and decided to play around with it.
-
-The camera has analog video output and a serial port for remote control using the Visca protocol.
-
-I found the protocol being publicly documented by Sony in a camera manual and a C implementation
-of that protocol at http://sourceforge.net/projects/libvisca/ - but I wanted an easier solution
-so I started implementing the commandset my camera offers in python.
-
-
-Status
-------
-
-Currently the basic functions all work but there is no error handling yet as at this stage it was
-just a proof of concept. I plan on adding this and make it a full featured implementation, at leat
-for my camera.
-
-The error handling might make some changes neccessary due to the fact that some commands are being executed
-asynchronously and the camera returns an ACK when the command was accepted and another message when it was
-completed (e.g. tilting, panning). This will require some changes so don't expect anything to be stable.
-
-As this is a side project these changes are not highest priority.
