@@ -28,6 +28,32 @@ from _thread import allocate_lock
 
 class Visca():
     
+    REGISTER_NAMES = {'mode': b'\x72'}
+    
+    REGISTER_VALUES = { b'\x72':
+        { b'\x01' : '1080i/59.94',
+          #b'\x02' : 'Reserved',
+          b'\x03' : 'NTSC Analog',
+          b'\x04' : '1080i/50',
+          b'\x05' : 'PAL Analog',
+          b'\x06' : '1080p/29.97',
+          #b'\x07' : 'Reserved',
+          b'\x08' : '1080p/25',
+          b'\x09' : '720p/59.94',
+          #b'\x0A' : 'Reserved',
+          #b'\x0B' : 'Reserved',
+          b'\x0C' : '720p/50',
+          #b'\x0D' : 'Reserved',
+          b'\x0E' : '720p/29.97',
+          #b'\x0F' : 'Reserved',
+          #b'\x10' : 'Reserved',
+          b'\x11' : '720p/25',
+          #b'\x12' : 'Reserved',
+          b'\x13' : '1080p/59.94',
+          b'\x14' : '1080p/50',
+        }
+        }
+    
     OPTICAL_ZOOM_SETTINGS = [
         b'\x00\x00\x00\x00',
         b'\x01\x06\x0A\x01',
@@ -78,24 +104,27 @@ class Visca():
         
     ZOOM_SETTINGS = OPTICAL_ZOOM_SETTINGS + DIGITAL_ZOOM_SETTINGS[1:]
 
-    def __init__(self,portname="/dev/ttyACM1"):
+    def __init__(self,portname="/dev/ttyUSB0", timeout=1):
         self.serialport=None
         self.mutex = allocate_lock()
         self.portname=portname
-        self.open_port()
+        self.open_port(timeout)
 
-    def open_port(self):
+    def open_port(self, timeout):
 
         self.mutex.acquire()
 
         if (self.serialport == None):
             try:
-                self.serialport = serial.Serial(self.portname,9600,timeout=2,stopbits=1,bytesize=8,rtscts=False, dsrdtr=False)
+                self.serialport = serial.Serial(self.portname,9600,timeout=timeout,stopbits=1,bytesize=8,rtscts=False, dsrdtr=False)
                 self.serialport.flushInput()
             except Exception as e:
                 print ("Exception opening serial port '%s' for display: %s\n" % (self.portname,e))
                 raise e
                 self.serialport = None
+        
+        self.serialport.reset_input_buffer()
+        self.serialport.reset_output_buffer()
 
         self.mutex.release()
 
@@ -275,6 +304,7 @@ class Visca():
 
         terminator=0xff
 
+        #import pdb;pdb.set_trace()
         packet=bytes([header])+data+bytes([terminator])
 
         self.mutex.acquire()
@@ -284,6 +314,7 @@ class Visca():
         reply = self.recv_packet()
 
         if reply[-1] != 0xff:
+            #import pdb;pdb.set_trace()
             print ("received packet not terminated correctly: %s" % reply)
             reply=None
 
@@ -325,11 +356,15 @@ class Visca():
         #address of first device. should be 1:
         first=1
 
-        reply = self.send_broadcast(b'\x30'+bytes([first])) # set address
+        data = b'\x30'+bytes([first])
+        #import pdb;pdb.set_trace()
+        reply = self.send_broadcast(data) # set address
 
         if not reply:
             print ("No reply from the bus.")
-            sys.exit(1)
+            #sys.exit(1)
+            self.mutex.release()
+            raise "Timeout on write"
 
         if len(reply)!=4 or reply[-1]!=0xff:
             print ("ERROR enumerating devices")
@@ -490,6 +525,48 @@ class Visca():
     def cmd_cam_stabilization_off(self,device):
         return self.cmd_cam_stabilization(device,0x03)
         
+    # Backlight compensation
+    
+    def cmd_cam_backlight_set(self, device, mode):
+        subcmd=b'\x33'+bytes([mode])
+        return self.cmd_cam(device, subcmd)
+        
+    def cmd_cam_backlight_off(self, device):
+        return self.cmd_cam_backlight_set(device, 0x03)
+        
+    def cmd_cam_backlight_on(self, device):
+        return self.cmd_cam_backlight_set(device, 0x02)
+        
+        
+    # High Resolution
+    
+    def cmd_cam_hires_set(self, device, mode):
+        subcmd=b'\x52'+bytes([mode])
+        return self.cmd_cam(device, subcmd)
+        
+    def cmd_cam_hires_off(self, device):
+        return self.cmd_cam_hires_set(device, 0x03)
+        
+    def cmd_cam_hires_on(self, device):
+        return self.cmd_cam_hires_set(device, 0x02)
+    
+    # Picture Effect
+    
+    def cmd_cam_effect_negative(self, device):
+        subcmd = b'\x63\x02'
+        return self.cmd_cam(device,subcmd)
+        pass
+        
+    def cmd_cam_effect_blackwhite(self, device):
+        subcmd = b'\x63\x04'
+        return self.cmd_cam(device,subcmd)
+        pass
+        
+    def cmd_cam_effect_off(self, device):
+        subcmd = b'\x63\x00'
+        return self.cmd_cam(device,subcmd)
+        pass
+        
     # Aperture Control
     def cmd_cam_aperture_control(self,device,mode):
         step=b'\x1F'
@@ -518,7 +595,14 @@ class Visca():
     def cmd_cam_aperture_control_reset(self,device):
         subcmd=b"\x1F\x02\x00\x00"
         return self.cmd_cam(device,subcmd)
-        pass
+        
+    def cmd_cam_register_set(self, device, register_bytes, value):
+        print(' Someone called set register !!! ')
+        value01 = ( value[0] & 0b11110000 ) >> 4
+        value02 = value[0] & 0b00001111
+        subcmd=b'\x24'+register_bytes+bytes([value01])+bytes([value02])
+        return self.cmd_cam(device,subcmd)
+        
         
 # --------------------- Getters --------------------------------------
 
@@ -556,6 +640,65 @@ class Visca():
             return True
         if mode == b'\x03':
             return False
+            
+    def inquiry_negative_mode(self,device):
+        subcmd=b'\x63'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True
+        else:
+            return False
+            
+    def inquiry_blackwhite_mode(self,device):
+        subcmd=b'\x63'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x04':
+            return True
+        else:
+            return False
+            
+    def inquiry_backlight_mode(self, device):
+        subcmd=b'\x33'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True
+        elif mode == b'\x03':
+            return False
+            
+    def inquiry_hires_mode(self, device):
+        subcmd=b'\x52'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True
+        elif mode == b'\x03':
+            return False
+            
+    def inquiry_image_stabilization(self,device):
+        subcmd=b'\x34'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True
+        elif mode == b'\x03':
+            return False
+        elif mode == b'\x00':
+            return 'Hold'
+            
+    def inquiry_stablezoom(self,device):
+        return False
+        
+    def inquiry_register(self, device, register):
+        subcmd=b'\x24'+register
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        value = bytes([(mode[0]&0b00001111)<<4 | mode[1]&0b00001111])
+        return self.REGISTER_VALUES[register][value]
+        
+        
         
 # --------------------- NOT TESTED FROM NOW ON -----------------------
 
