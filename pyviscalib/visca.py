@@ -28,6 +28,8 @@ from _thread import allocate_lock
 
 class Visca():
     
+    DEBUG = False
+    
     REGISTER_NAMES = {'mode': b'\x72'}
     
     REGISTER_VALUES = { b'\x72':
@@ -103,12 +105,37 @@ class Visca():
         ]
         
     ZOOM_SETTINGS = OPTICAL_ZOOM_SETTINGS + DIGITAL_ZOOM_SETTINGS[1:]
+    
+    __instance = None
+    started = False
+    def __new__(cls):
+        if Visca.__instance is None:
+            Visca.__instance = object.__new__(cls)
+        return Visca.__instance
+
 
     def __init__(self,portname="/dev/ttyUSB0", timeout=1):
+        self.portname = portname
+        self.timeout = timeout
+        
+    def start(self):
+        if self.started:
+            return
+            
         self.serialport=None
         self.mutex = allocate_lock()
-        self.portname=portname
-        self.open_port(timeout)
+        self.portname=self.portname
+        self.open_port(self.timeout)
+            
+        while True:
+            try:
+                self.cmd_adress_set()
+                self.started = True
+                break
+            except Exception as e:
+                print ("exception during serial init %s. Retrying..." %e)
+                self.mutex.release()
+                pass
 
     def open_port(self, timeout):
 
@@ -129,7 +156,7 @@ class Visca():
         self.mutex.release()
 
     def dump(self,packet,title=None):
-        if not packet or len(packet)==0:
+        if not packet or len(packet)==0 or not self.DEBUG:
             return
 
         header=packet[0]
@@ -238,6 +265,9 @@ class Visca():
             self.dump(packet,"recv: %s" % extra_title)
         else:
             self.dump(packet,"recv")
+        
+        if packet == []:
+            import pdb;pdb.set_trace()
         return packet
 
     def _write_packet(self,packet):
@@ -314,7 +344,6 @@ class Visca():
         reply = self.recv_packet()
 
         if reply[-1] != 0xff:
-            #import pdb;pdb.set_trace()
             print ("received packet not terminated correctly: %s" % reply)
             reply=None
 
