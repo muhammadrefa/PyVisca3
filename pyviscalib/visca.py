@@ -26,7 +26,7 @@
 import serial,sys
 from _thread import allocate_lock
 
-class Visca():
+class ViscaControl():
     
     DEBUG = False
     
@@ -109,9 +109,9 @@ class Visca():
     __instance = None
     started = False
     def __new__(cls):
-        if Visca.__instance is None:
-            Visca.__instance = object.__new__(cls)
-        return Visca.__instance
+        if ViscaControl.__instance is None:
+            ViscaControl.__instance = object.__new__(cls)
+        return ViscaControl.__instance
 
 
     def __init__(self,portname="/dev/ttyUSB0", timeout=1):
@@ -439,7 +439,7 @@ class Visca():
     def get_data_from_inquiry(self, packet):
         return packet[2:-1]
 
-# ----------------------- Setters -------------------------------------
+    # ----------------------- Setters -------------------------------------
 
 
     # POWER control
@@ -636,7 +636,7 @@ class Visca():
         return self.cmd_cam(device,subcmd)
         
         
-# --------------------- Getters --------------------------------------
+    # --------------------- Getters --------------------------------------
 
     def cmd_inquiry(self,device,subcmd):
         packet=b'\x09\x04'+subcmd
@@ -732,7 +732,7 @@ class Visca():
         
         
         
-# --------------------- NOT TESTED FROM NOW ON -----------------------
+    # --------------------- NOT TESTED FROM NOW ON -----------------------
 
     # freeze
     def cmd_cam_freeze(self,device,mode):

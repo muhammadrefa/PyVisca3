@@ -22,3 +22,4 @@
 #    USA
 
 """PyVisca-3 by Giacomo Benelli <benelli.giacomo@gmail.com>"""
+from .visca import ViscaControl
