@@ -115,6 +115,9 @@ class Visca():
 
 
     def __init__(self,portname="/dev/ttyUSB0", timeout=1):
+        if self.started:
+            return
+
         self.portname = portname
         self.timeout = timeout
         
@@ -177,7 +180,7 @@ class Visca():
         if title:
             print ("packet (%s) [%d => %s] len=%d: %s" % (title,sender,recipient_s,len(packet),packet))
         else:
-            print ("packet [%d => %s] len=%d: %s" % (sender,sender,recipient_s,len(packet),packet))
+            print ("packet [%d => %s] len=%d: %s" % (sender,recipient_s,len(packet),packet))
 
         print (" QQ.........: %02x" % qq)
 
@@ -781,7 +784,7 @@ class Visca():
     # Digital Effect
 
     def cmd_cam_digital_effect(self,device,mode):
-        subcmd=b"\x64"+byte([mode])
+        subcmd=b"\x64"+bytes([mode])
         return self.cmd_cam(device,subcmd)
 
     def cmd_cam_digital_effect_off(self,device):
