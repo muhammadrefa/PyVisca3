@@ -25,7 +25,6 @@
 
 import serial,sys
 from _thread import allocate_lock
-import struct
 
 class ViscaControl():
     
@@ -106,8 +105,7 @@ class ViscaControl():
         ]
         
     ZOOM_SETTINGS = OPTICAL_ZOOM_SETTINGS + DIGITAL_ZOOM_SETTINGS[1:]
-    ZOOM_SETTINGS_INT = None
-
+    
     __instance = None
     started = False
     def __new__(cls):
@@ -126,8 +124,6 @@ class ViscaControl():
     def start(self):
         if self.started:
             return
-
-        self.ZOOM_SETTINGS_INT = [ struct.unpack('>I', a)[0] for a in self.ZOOM_SETTINGS]
             
         self.serialport=None
         self.mutex = allocate_lock()
@@ -651,18 +647,12 @@ class ViscaControl():
     def inquiry_combined_zoom_pos(self, device):
         subcmd=b'\x47'
         reply = self.cmd_inquiry(device, subcmd)
-        pos = self.get_data_from_inquiry(reply)
+        pos = 0
         try:
-            pos = self.ZOOM_SETTINGS.index(pos)
+            pos = self.ZOOM_SETTINGS.index(self.get_data_from_inquiry(reply))
         except:
             print('Zoom position is not in the 1-41x range')
-            #in this case we have to convert everything to an integer
-            # perform comparisons and then return the closest value
-            #This can happen if someone uses tele/wide zoom commands
-            pos_int = struct.unpack('>I', pos)[0]
-
-            pos = self.ZOOM_SETTINGS.index(struct.pack('>I',takeClosest(self.ZOOM_SETTINGS_INT, pos_int)))
-
+            
         return pos
         
     def inquiry_mirror_mode(self, device):
@@ -855,22 +845,5 @@ class ViscaControl():
     def cmd_datascreen_toggle(self,device):
         return self.cmd_datascreen(device,0x10)
 
-from bisect import bisect_left
 
-def takeClosest(myList, myNumber):
-    """
-    Assumes myList is sorted. Returns closest value to myNumber.
 
-    If two numbers are equally close, return the smallest number.
-    """
-    pos = bisect_left(myList, myNumber)
-    if pos == 0:
-        return myList[0]
-    if pos == len(myList):
-        return myList[-1]
-    before = myList[pos - 1]
-    after = myList[pos]
-    if after - myNumber < myNumber - before:
-       return after
-    else:
-       return before
