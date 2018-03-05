@@ -264,7 +264,9 @@ class ViscaControl():
                 packet=packet+bytes(s)
             else:
                 print ("ERROR: Timeout waiting for reply")
-                break
+                self.serialport.reset_input_buffer()
+                self.serialport.reset_output_buffer()
+                #break
             if s==b'\xff':
                 break
 
@@ -477,6 +479,7 @@ class ViscaControl():
 
     def cmd_cam_zoom_stop(self,device):
         subcmd=b"\x07\x00"
+        print('stopping zoom')
         return self.cmd_cam(device,subcmd)
 
     def cmd_cam_zoom_tele(self,device):
@@ -647,21 +650,39 @@ class ViscaControl():
         reply = self.send_packet(device,packet)
         #FIXME: check returned data here and retransmit?
         return reply
+        
+    def inquiry_precise_zoom_position(self, device):
+        subcmd=b'\x47'
+        reply = self.cmd_inquiry(device, subcmd)
+        if not reply:
+            return None
+            
+        position = self.get_data_from_inquiry(reply)
+        #number between 0x00000000 and 0x40000000
+        pos_int = struct.unpack('>I', position)[0]
+        return pos_int
 
     def inquiry_combined_zoom_pos(self, device):
         subcmd=b'\x47'
         reply = self.cmd_inquiry(device, subcmd)
-        pos = self.get_data_from_inquiry(reply)
+        if not reply:
+            return None
+            
+        position = self.get_data_from_inquiry(reply)
         try:
-            pos = self.ZOOM_SETTINGS.index(pos)
+            pos = self.ZOOM_SETTINGS.index(position)
         except:
             print('Zoom position is not in the 1-41x range')
             #in this case we have to convert everything to an integer
             # perform comparisons and then return the closest value
             #This can happen if someone uses tele/wide zoom commands
-            pos_int = struct.unpack('>I', pos)[0]
+            #import pdb;pdb.set_trace()
+            pos_int = struct.unpack('>I', position)[0]
 
             pos = self.ZOOM_SETTINGS.index(struct.pack('>I',takeClosest(self.ZOOM_SETTINGS_INT, pos_int)))
+
+            print('Returning approximate position %d for position %s' % ((pos+1), position))
+            #self.cmd_cam_zoom_direct(device, pos+1)
 
         return pos
         
