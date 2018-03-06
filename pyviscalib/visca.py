@@ -651,28 +651,50 @@ class ViscaControl():
         #FIXME: check returned data here and retransmit?
         return reply
         
-    def inquiry_precise_zoom_position(self, device):
-        subcmd=b'\x47'
-        reply = self.cmd_inquiry(device, subcmd)
-        if not reply:
-            return None
+    def keep_trying_to_get_zoom_position(self, device):
+        reply = b''
+        position = b''
+        max_retries = 5
+        retries = 0
+        while len(position) != 4 and retries<max_retries:
+            subcmd=b'\x47'
+            reply = self.cmd_inquiry(device, subcmd)
+            position = self.get_data_from_inquiry(reply)    
             
-        position = self.get_data_from_inquiry(reply)
+            #Sometimes the command just returns COMPLETION with no data.
+            # In this case, we can use stop zoom cmd that kindly seems
+            # to return the zoom position
+            if len(position) != 4:
+                print('got position %s, stopping zoom speed and trying again' % position)
+                reply = self.cmd_cam_zoom_stop(device)
+                position = self.get_data_from_inquiry(reply)    
+                print('now got position %s, is this good?' % position)
+                
+            #try again, this happens when you switch from zoom speed
+            # to zoom absolute
+            retries =+1
+            
+        return position
+        
+    def inquiry_precise_zoom_position(self, device):
+        position = self.keep_trying_to_get_zoom_position(device)
+        if len(position) != 4:
+            return None
+
         #number between 0x00000000 and 0x40000000
         pos_int = struct.unpack('>I', position)[0]
         return pos_int
 
     def inquiry_combined_zoom_pos(self, device):
-        subcmd=b'\x47'
-        reply = self.cmd_inquiry(device, subcmd)
-        if not reply:
+        self.DEBUG = True
+        position = self.keep_trying_to_get_zoom_position(device)
+        if len(position) != 4:
             return None
             
-        position = self.get_data_from_inquiry(reply)
         try:
             pos = self.ZOOM_SETTINGS.index(position)
         except:
-            print('Zoom position is not in the 1-41x range')
+            print('Zoom position is not in the 1-41x range, getting %s' % (position))
             #in this case we have to convert everything to an integer
             # perform comparisons and then return the closest value
             #This can happen if someone uses tele/wide zoom commands
@@ -684,6 +706,7 @@ class ViscaControl():
             print('Returning approximate position %d for position %s' % ((pos+1), position))
             #self.cmd_cam_zoom_direct(device, pos+1)
 
+        self.DEBUG = False
         return pos
         
     def inquiry_mirror_mode(self, device):
