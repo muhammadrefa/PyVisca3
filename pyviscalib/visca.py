@@ -26,6 +26,7 @@
 import serial,sys
 from _thread import allocate_lock
 import struct
+import time
 
 class ViscaControl():
     
@@ -143,10 +144,18 @@ class ViscaControl():
                 print ("exception during serial init %s. Retrying..." %e)
                 self.mutex.release()
                 pass
+                
+    #TO BE TESTED
+    def reset_and_reopen(self):
+        self.serialport.close()
+        #This is already called inside a lock
+        self.open_port(lock = False)
+        
 
-    def open_port(self, timeout):
+    def open_port(self, timeout, lock = True):
 
-        self.mutex.acquire()
+        if lock :
+            self.mutex.acquire()
 
         if (self.serialport == None):
             try:
@@ -159,8 +168,9 @@ class ViscaControl():
         
         self.serialport.reset_input_buffer()
         self.serialport.reset_output_buffer()
-
-        self.mutex.release()
+        
+        if lock :
+            self.mutex.release()
 
     def dump(self,packet,title=None):
         if not packet or len(packet)==0 or not self.DEBUG:
@@ -264,9 +274,7 @@ class ViscaControl():
                 packet=packet+bytes(s)
             else:
                 print ("ERROR: Timeout waiting for reply")
-                self.serialport.reset_input_buffer()
-                self.serialport.reset_output_buffer()
-                #break
+                return packet
             if s==b'\xff':
                 break
 
@@ -275,8 +283,6 @@ class ViscaControl():
         else:
             self.dump(packet,"recv")
         
-        if packet == []:
-            import pdb;pdb.set_trace()
         return packet
 
     def _write_packet(self,packet):
@@ -292,20 +298,7 @@ class ViscaControl():
         self.serialport.write(packet)
         self.dump(packet,"sent")
         
-    def _raw_send(self, b_packet):
-        if not self.serialport.isOpen():
-            sys.exit(1)
-
-        # lets see if a completion message or someting
-        # else waits in the buffer. If yes dump it.
-        if self.serialport.inWaiting():
-            self.recv_packet("ignored")
-
-        self.serialport.write(b_packet)
-
-
-
-    def send_packet(self,recipient,data):
+    def send_packet(self,recipient,data, inquiry = False):
         """
         according to the documentation:
 
@@ -326,6 +319,7 @@ class ViscaControl():
         we use -1 as recipient to send a broadcast!
 
         """
+        reply = b''
 
         # we are the controller with id=0
         sender = 0
@@ -349,10 +343,25 @@ class ViscaControl():
         self.mutex.acquire()
 
         self._write_packet(packet)
+        
+        if not inquiry:
+            reply = self.recv_packet()
+        else:
+            #In case of inquiries, sometimes ACK is returned immediately 
+            # and the response is send when command has been executed. 
+            #So, in case of inquiry, we block until we get a full response
+            max_retries = 5
+            tries = 0
+            while tries < max_retries:
+                tries += 1
+                reply = self.recv_packet()
+                if (len(reply) > 3):
+                    break
+                #else:
+                    #print('After inquiry, got packet with len %d at retry%d' % (len(reply), tries))
+                time.sleep(0.001)
 
-        reply = self.recv_packet()
-
-        if reply[-1] != 0xff:
+        if reply and reply[-1] != 0xff:
             print ("received packet not terminated correctly: %s" % reply)
             reply=None
 
@@ -606,6 +615,24 @@ class ViscaControl():
         return self.cmd_cam(device,subcmd)
         pass
         
+    #Exposure mode
+    def cmd_cam_shutter_priority(self, device):
+        #self.DEBUG=True
+        subcmd=b'\x39\x0A'
+        return self.cmd_cam(device,subcmd)
+        
+    def cmd_cam_full_auto(self, device):
+        #self.DEBUG=False
+        subcmd=b'\x39\x00'
+        return self.cmd_cam(device,subcmd)
+        
+    def cmd_cam_shutter_speed(self, device, value):
+        #self.DEBUG=True
+        value01 = ( value[0] & 0b11110000 ) >> 4
+        value02 = value[0] & 0b00001111
+        subcmd=b'\x4A\x00\x00'+bytes([value01])+bytes([value02])
+        return self.cmd_cam(device,subcmd)
+        
     # Aperture Control
     def cmd_cam_aperture_control(self,device,mode):
         step=b'\x1F'
@@ -647,37 +674,50 @@ class ViscaControl():
 
     def cmd_inquiry(self,device,subcmd):
         packet=b'\x09\x04'+subcmd
-        reply = self.send_packet(device,packet)
+        reply = self.send_packet(device,packet, inquiry = True)
         #FIXME: check returned data here and retransmit?
         return reply
+        
+    def get_zoom_position(self,device):
+        subcmd=b'\x47'
+        reply = self.cmd_inquiry(device, subcmd)
+        position = self.get_data_from_inquiry(reply)    
+        return position
         
     def keep_trying_to_get_zoom_position(self, device):
         reply = b''
         position = b''
         max_retries = 5
         retries = 0
-        while len(position) != 4 and retries<max_retries:
+        while ((len(position) != 4) and (retries<max_retries)):
+            #print('asking zoom level')
             subcmd=b'\x47'
             reply = self.cmd_inquiry(device, subcmd)
             position = self.get_data_from_inquiry(reply)    
             
+            #print('Got reply %s, position %s, retry %d' % (reply, position, retries))
+            
             #Sometimes the command just returns COMPLETION with no data.
             # In this case, we can use stop zoom cmd that kindly seems
             # to return the zoom position
+            '''
             if len(position) != 4:
-                print('got position %s, stopping zoom speed and trying again' % position)
+                print('did not work. stopping zoom level')
                 reply = self.cmd_cam_zoom_stop(device)
                 position = self.get_data_from_inquiry(reply)    
-                print('now got position %s, is this good?' % position)
-                
+                print('Got reply %s, position %s' % (reply, position))
+            '''
             #try again, this happens when you switch from zoom speed
             # to zoom absolute
-            retries =+1
+            retries += 1
             
+        #print('Returing posistion %s' % position)
         return position
         
     def inquiry_precise_zoom_position(self, device):
-        position = self.keep_trying_to_get_zoom_position(device)
+        #print('Inquiry zoom precise position')
+        position = self.get_zoom_position(device)
+        #print('Got position %s' % position)
         if len(position) != 4:
             return None
 
@@ -686,15 +726,15 @@ class ViscaControl():
         return pos_int
 
     def inquiry_combined_zoom_pos(self, device):
-        self.DEBUG = True
-        position = self.keep_trying_to_get_zoom_position(device)
+        #self.DEBUG = True
+        position = self.get_zoom_position(device)
         if len(position) != 4:
             return None
             
         try:
             pos = self.ZOOM_SETTINGS.index(position)
         except:
-            print('Zoom position is not in the 1-41x range, getting %s' % (position))
+            #print('Zoom position is not in the 1-41x range, getting %s' % (position))
             #in this case we have to convert everything to an integer
             # perform comparisons and then return the closest value
             #This can happen if someone uses tele/wide zoom commands
@@ -703,10 +743,10 @@ class ViscaControl():
 
             pos = self.ZOOM_SETTINGS.index(struct.pack('>I',takeClosest(self.ZOOM_SETTINGS_INT, pos_int)))
 
-            print('Returning approximate position %d for position %s' % ((pos+1), position))
+            #print('Returning approximate position %d for position %s' % ((pos+1), position))
             #self.cmd_cam_zoom_direct(device, pos+1)
-
-        self.DEBUG = False
+            
+        #self.DEBUG = True
         return pos
         
     def inquiry_mirror_mode(self, device):
