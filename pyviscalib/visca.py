@@ -117,7 +117,7 @@ class ViscaControl():
         return ViscaControl.__instance
 
 
-    def __init__(self,portname="/dev/ttyACM1", timeout=1):
+    def __init__(self,portname="/dev/ttyACM0", timeout=1):
         if self.started:
             return
 
@@ -142,7 +142,7 @@ class ViscaControl():
                 break
             except Exception as e:
                 print ("exception during serial init %s. Retrying..." %e)
-                self.mutex.release()
+                #self.mutex.release()
                 pass
                 
     #TO BE TESTED
