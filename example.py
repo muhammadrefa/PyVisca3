@@ -28,46 +28,61 @@
 # expect spaghetti code... this applied for the original author and 
 # for me too... :)
 #
+import time,sys
+from pyviscalib import ViscaControl
+from  time import sleep
+import threading
 
-def main():
+class Test():
 
-	from pyviscalib import ViscaControl
-	from  time import sleep
+    def __init__(self):
+        self._exit = False
+        self.v=ViscaControl()
+                
+        self.v.start()
 
-	v=ViscaControl()
+        self.v.cmd_adress_set()
 
-	v.cmd_adress_set()
+        self.v.cmd_if_clear_all()
 
-	v.cmd_if_clear_all()
-
-	CAM=1
-
-#	v.cmd_cam_power_off(CAM)
-
-	v.cmd_cam_power_on(CAM)
-
-	v.cmd_cam_auto_power_off(CAM,2)
-
-	v.cmd_datascreen_on(CAM)
-
-
-	sleep(1)
-	v.cmd_cam_zoom_tele(CAM)
-	sleep(2)
-	v.cmd_cam_zoom_stop(CAM)
-	sleep(3)
+        self.CAM=1
+        
+        self.read_thread_t = threading.Thread(target = self.continuous_read)
+        self.write_thread_t = threading.Thread(target = self.continuous_write)
+        
+    def start(self):
+        self.read_thread_t.start()
+        self.write_thread_t.start()
     
-	v.cmd_cam_zoom_wide(CAM)
-	sleep(2)
-	v.cmd_cam_zoom_stop(CAM)
-	sleep(3)
+    def stop(self):
+        print('Quitting Test')
+        self._exit = True
+        self.read_thread_t.join()
+        self.write_thread_t.join()
+        
+    def continuous_read(self):
+        while not self._exit:
+            zl = self.v.inquiry_combined_zoom_pos(self.CAM)
+            print('Got zoomlevel %d' %zl)
+            time.sleep(0.01)
+            
+    def continuous_write(self):
+        while not self._exit:
+            self.v.cmd_cam_zoom_tele_speed(self.CAM, 7)
+            time.sleep(2)
+            self.v.cmd_cam_zoom_stop(self.CAM)
+            self.v.cmd_cam_zoom_wide_speed(self.CAM, 7)
+            time.sleep(2)
 
-	v.cmd_cam_power_off(CAM)
 
 if __name__ == '__main__':
     try:
-        main()
+        t=Test()
+        t.start()
+        while True:
+            sleep(1)
     except KeyboardInterrupt:
-        pass
+        t.stop()
+        sys.exit(1)
 
 
