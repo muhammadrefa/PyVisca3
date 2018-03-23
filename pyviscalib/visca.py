@@ -117,7 +117,7 @@ class ViscaControl():
         return ViscaControl.__instance
 
 
-    def __init__(self,portname="/dev/ttyACM0", timeout=1):
+    def __init__(self,portname="/dev/ttyUSB0", timeout=1):
         if self.started:
             return
 
@@ -817,6 +817,47 @@ class ViscaControl():
         elif mode == b'\x03':
             return False
             
+    def inquiry_AEMode(self,device):
+        subcmd= b'\x39'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        return mode
+            
+    def inquiry_shutter_mode(self,device):
+        mode = self.inquiry_AEMode(device)
+        if mode == b'\x0A':
+            return True
+        else:
+            return False
+            
+    def inquiry_fullauto_mode(self,device):
+        mode = self.inquiry_AEMode(device)
+        if mode == b'\x00':
+            return True
+        else:
+            return False
+            
+    def inquiry_manual_mode(self,device):
+        mode = self.inquiry_AEMode(device)
+        if mode == b'\x03':
+            return True
+        else:
+            return False
+            
+    def inquiry_iris_mode(self,device):
+        mode = self.inquiry_AEMode(device)
+        if mode == b'\x0B':
+            return True
+        else:
+            return False
+            
+    def inquiry_bright_mode(self,device):
+        mode = self.inquiry_AEMode(device)
+        if mode == b'\x0D':
+            return True
+        else:
+            return False
+    
     def inquiry_image_stabilization(self,device):
         subcmd=b'\x34'
         reply = self.cmd_inquiry(device, subcmd)
