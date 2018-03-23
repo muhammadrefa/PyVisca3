@@ -471,6 +471,20 @@ class ViscaControl():
 
     def cmd_cam_power_off(self,device):
         return self.cmd_cam_power(device,False)
+        
+    # Store Custom presets
+
+    def cmd_cam_reset_custom_preset(self, device):
+        subcmd=b"\x3f\x00\x7f"
+        return self.cmd_cam(device,subcmd)    
+
+    def cmd_cam_set_custom_preset(self, device):
+        subcmd=b"\x3f\x01\x7f"
+        return self.cmd_cam(device,subcmd)
+        
+    def cmd_cam_recall_custom_preset(self, device):
+        subcmd=b"\x3f\x02\x7f"
+        return self.cmd_cam(device,subcmd)
 
 
     #FIXME
@@ -488,7 +502,7 @@ class ViscaControl():
 
     def cmd_cam_zoom_stop(self,device):
         subcmd=b"\x07\x00"
-        print('stopping zoom')
+        #print('stopping zoom')
         return self.cmd_cam(device,subcmd)
 
     def cmd_cam_zoom_tele(self,device):
