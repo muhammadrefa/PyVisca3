@@ -117,7 +117,7 @@ class ViscaControl():
         return ViscaControl.__instance
 
 
-    def __init__(self,portname="/dev/ttyUSB0", timeout=1):
+    def __init__(self,portname="/dev/ttyACM0", timeout=1):
         if self.started:
             return
 
