@@ -111,13 +111,13 @@ class ViscaControl():
 
     __instance = None
     started = False
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if ViscaControl.__instance is None:
             ViscaControl.__instance = object.__new__(cls)
         return ViscaControl.__instance
 
 
-    def __init__(self,portname="/dev/ttyACM0", timeout=1):
+    def __init__(self,portname="/dev/ttyUSB0", timeout=1):
         if self.started:
             return
 
