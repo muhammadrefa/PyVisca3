@@ -37,7 +37,7 @@ class Test():
 
     def __init__(self):
         self._exit = False
-        self.v=ViscaControl()
+        self.v=ViscaControl(portname='/dev/serial/by-id/usb-Twiga_TWIGACam-if03-port0')
                 
         self.v.start()
 
