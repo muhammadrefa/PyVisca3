@@ -28,7 +28,8 @@ from _thread import allocate_lock
 import struct
 import time
 
-class ViscaControl():
+
+class ViscaControl:
     
     DEBUG = False
     
@@ -149,119 +150,108 @@ class ViscaControl():
     def reset_and_reopen(self):
         self.serialport.close()
         #This is already called inside a lock
-        self.open_port(lock = False)
+        self.open_port(lock=False)
         
+    def open_port(self, timeout, lock=True):
 
-    def open_port(self, timeout, lock = True):
-
-        if lock :
+        if lock:
             self.mutex.acquire()
 
-        if (self.serialport == None):
+        if self.serialport is None:
             try:
                 self.serialport = serial.Serial(self.portname,9600,timeout=timeout,stopbits=1,bytesize=8,rtscts=False, dsrdtr=False)
                 self.serialport.flushInput()
             except Exception as e:
-                print ("Exception opening serial port '%s' for display: %s\n" % (self.portname,e))
+                print("Exception opening serial port '%s' for display: %s\n" % (self.portname,e))
                 raise e
                 self.serialport = None
         
         self.serialport.reset_input_buffer()
         self.serialport.reset_output_buffer()
         
-        if lock :
+        if lock:
             self.mutex.release()
 
-    def dump(self,packet,title=None):
-        if not packet or len(packet)==0 or not self.DEBUG:
+    def dump(self, packet, title=None):
+        if not packet or len(packet) == 0 or not self.DEBUG:
             return
 
-        header=packet[0]
-        term=packet[-1]
-        qq=packet[1]
+        header = packet[0]
+        term = packet[-1]
+        qq = packet[1]
 
-        sender = (header&0b01110000)>>4
-        broadcast = (header&0b1000)>>3
-        recipient = (header&0b0111)
+        sender = (header & 0b01110000) >> 4
+        broadcast = (header & 0b1000) >> 3
+        recipient = (header & 0b0111)
 
         if broadcast:
-            recipient_s="*"
+            recipient_s = "*"
         else:
-            recipient_s=str(recipient)
+            recipient_s = str(recipient)
 
-        print ("-----")
+        print("-----")
         
         if title:
-            print ("packet (%s) [%d => %s] len=%d: %s" % (title,sender,recipient_s,len(packet),packet))
+            print("packet (%s) [%d => %s] len=%d: %s" % (title, sender, recipient_s, len(packet), packet))
         else:
-            print ("packet [%d => %s] len=%d: %s" % (sender,recipient_s,len(packet),packet))
+            print("packet [%d => %s] len=%d: %s" % (sender, recipient_s, len(packet), packet))
 
-        print (" QQ.........: %02x" % qq)
+        print(" QQ.........: %02x" % qq)
 
-        if qq==0x01:
-            print ("              (Command)")
-        if qq==0x09:
-            print ("              (Inquiry)")
+        if qq == 0x01:
+            print("              (Command)")
+        elif qq == 0x09:
+            print("              (Inquiry)")
 
-        if len(packet)>3:
-            rr=(packet[2])
-            print (" RR.........: %02x" % rr)
+        if len(packet) > 3:
+            rr = (packet[2])
+            print(" RR.........: %02x" % rr)
+            if rr == 0x00:
+                print("              (Interface)")
+            elif rr == 0x04:
+                print("              (Camera [1])")
+            elif rr == 0x06:
+                print("              (Pan/Tilter)")
 
-            if rr==0x00:
-                print ("              (Interface)")
-            if rr==0x04:
-                print ("              (Camera [1])")
-            if rr==0x06:
-                print ("              (Pan/Tilter)")
-
-        if len(packet)>4:
-            data=packet[3:-1]
-            print (" Data.......: %s" % data)
+        if len(packet) > 4:
+            data = packet[3:-1]
+            print(" Data.......: %s" % data)
         else:
-            print (" Data.......: None")
+            print(" Data.......: None")
 
-        if not term==0xff:
-            print ("ERROR: Packet not terminated correctly")
+        if not term == 0xff:
+            print("ERROR: Packet not terminated correctly")
             return
 
-        if len(packet)==3 and ((qq & 0b11110000)>>4)==4:
+        if len(packet) == 3 and ((qq & 0b11110000) >> 4) == 4:
             socketno = (qq & 0b1111)
-            print (" packet: ACK for socket %02x" % socketno)
-
-        if len(packet)==3 and ((qq & 0b11110000)>>4)==5:
+            print(" packet: ACK for socket %02x" % socketno)
+        elif len(packet) == 3 and ((qq & 0b11110000) >> 4) == 5:
             socketno = (qq & 0b1111)
-            print (" packet: COMPLETION for socket %02x" % socketno)
-
-        if len(packet)>3 and ((qq & 0b11110000)>>4)==5:
+            print(" packet: COMPLETION for socket %02x" % socketno)
+        elif len(packet) > 3 and ((qq & 0b11110000) >> 4) == 5:
             socketno = (qq & 0b1111)
-            ret=packet[2:-1]
-            print (" packet: COMPLETION for socket %02x, data=%s" % (socketno,ret))
-
-        if len(packet)==4 and ((qq & 0b11110000)>>4)==6:
-            print (" packet: ERROR!")
+            ret = packet[2:-1]
+            print(" packet: COMPLETION for socket %02x, data=%s" % (socketno,ret))
+        elif len(packet) == 4 and ((qq & 0b11110000) >> 4) == 6:
+            print(" packet: ERROR!")
 
             socketno = (qq & 0b00001111)
             errcode  = packet[2]
 
-            #these two are special, socket is zero and has no meaning:
-            if errcode==0x02 and socketno==0:
-                print ("        : Syntax Error")
-            if errcode==0x03 and socketno==0:
-                print ("        : Command Buffer Full")
-
-
-            if errcode==0x04:
-                print ("        : Socket %i: Command canceled" % socketno)
-
-            if errcode==0x05:
-                print ("        : Socket %i: Invalid socket selected" % socketno)
-
-            if errcode==0x41:
-                print ("        : Socket %i: Command not executable" % socketno)
-
-        if len(packet)==3 and qq==0x38:
-            print ("Network Change - we should immedeately issue a renumbering!")
-
+            # these two are special, socket is zero and has no meaning:
+            if errcode == 0x02 and socketno == 0:
+                print("        : Syntax Error")
+            elif errcode == 0x03 and socketno == 0:
+                print("        : Command Buffer Full")
+            elif errcode == 0x04:
+                print("        : Socket %i: Command canceled" % socketno)
+            elif errcode == 0x05:
+                print("        : Socket %i: Invalid socket selected" % socketno)
+            elif errcode == 0x41:
+                print("        : Socket %i: Command not executable" % socketno)
+        elif len(packet) == 3 and qq == 0x38:
+            print("Network Change - we should immedeately issue a renumbering!")
 
     def recv_packet(self,extra_title=None):
         # read up to 16 bytes until 0xff
@@ -392,39 +382,43 @@ class ViscaControl():
 
         return bytes([p,q,r,s])
 
-
-
     def cmd_adress_set(self):
         """
-        starts enumerating devices, sends the first adress to use on the bus
+        alias for cmd_address_set (not to break previous version)
+        """
+        self.cmd_address_set()
+
+    def cmd_address_set(self):
+        """
+        starts enumerating devices, sends the first address to use on the bus
         reply is the same packet with the next free adress to use
         """
 
-        #address of first device. should be 1:
-        first=1
+        # address of first device. should be 1:
+        first = 1
 
         data = b'\x30'+bytes([first])
-        #import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         reply = self.send_broadcast(data) # set address
 
         if not reply:
-            print ("No reply from the bus.")
-            #sys.exit(1)
+            print("No reply from the bus.")
+            # sys.exit(1)
             self.mutex.release()
             raise "Timeout on write"
 
-        if len(reply)!=4 or reply[-1]!=0xff:
-            print ("ERROR enumerating devices")
+        if len(reply) != 4 or reply[-1] != 0xff:
+            print("ERROR enumerating devices")
             sys.exit(1)
         if reply[0] != 0x88:
-            print ("ERROR: expecting broadcast answer to an enumeration request")
+            print("ERROR: expecting broadcast answer to an enumeration request")
             sys.exit(1)
         address = (reply[2])
 
-        d=address-first
-        print ("debug: found %i devices on the bus" % d)
+        d = address-first
+        print("debug: found %i devices on the bus" % d)
 
-        if d==0:
+        if d == 0:
             sys.exit(1)
 
 
