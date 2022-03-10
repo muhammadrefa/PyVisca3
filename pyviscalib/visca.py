@@ -557,12 +557,18 @@ class ViscaControl:
         # print('stopping focus')
         return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_focus_far(self, device):
-        subcmd = b"\x08\x02"
+    def cmd_cam_focus_far(self, device, speed=-1):
+        if 0 <= speed <= 7:
+            subcmd = b"\x08" + (0x20 | speed).to_bytes(1, 'big')
+        else:
+            subcmd = b"\x08\x02"
         return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_focus_near(self, device):
-        subcmd = b"\x08\x03"
+    def cmd_cam_focus_near(self, device, speed=-1):
+        if 0 <= speed <= 7:
+            subcmd = b"\x08" + (0x30 | speed).to_bytes(1, 'big')
+        else:
+            subcmd = b"\x08\x03"
         return self.cmd_cam(device, subcmd)
 
     def cmd_cam_focus_direct(self, device, focus):
@@ -572,8 +578,27 @@ class ViscaControl:
         else:
             print('something wrong in direct focus values')
 
+    def cmd_cam_focus_af(self, device, state):
+        if state:
+            subcmd = b"\x38\x02"
+        else:
+            subcmd = b"\x38\x03"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_focus_af_toggle(self, device):
+        subcmd = b"\x38\x10"
+        return self.cmd_cam(device, subcmd)
+
     def cmd_cam_focus_onepush_af(self, device):
         subcmd = b"\x18\x01"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_focus_infinity(self, device):
+        subcmd = b"\x18\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_focus_near_limit(self, device, value):
+        subcmd = b"\x28" + self._assign_pqrs_value(value & 0xFF00)
         return self.cmd_cam(device, subcmd)
 
     # ----- ZOOM FOCUS control (CAM_ZoomFocus) -----
