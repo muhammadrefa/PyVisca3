@@ -112,11 +112,11 @@ class ViscaControl:
 
     __instance = None
     started = False
+
     def __new__(cls, *args, **kwargs):
         if ViscaControl.__instance is None:
             ViscaControl.__instance = object.__new__(cls)
         return ViscaControl.__instance
-
 
     def __init__(self,portname="/dev/ttyUSB0", timeout=1):
         if self.started:
@@ -124,6 +124,13 @@ class ViscaControl:
 
         self.portname = portname
         self.timeout = timeout
+
+    @staticmethod
+    def _assign_pqrs_value(value: int) -> bytes:
+        pqrs_val = 0
+        for i in range(0, 4):
+            pqrs_val |= ((value & (0x0F << 4*i)) << 4*i)
+        return pqrs_val.to_bytes(4, 'big')
         
     def start(self):
         if self.started:
@@ -146,14 +153,13 @@ class ViscaControl:
                 #self.mutex.release()
                 pass
                 
-    #TO BE TESTED
+    # TO BE TESTED
     def reset_and_reopen(self):
         self.serialport.close()
         #This is already called inside a lock
         self.open_port(lock=False)
         
     def open_port(self, timeout, lock=True):
-
         if lock:
             self.mutex.acquire()
 
@@ -491,73 +497,127 @@ class ViscaControl:
         subcmd=b"\x40"+self.i2v(time)
         return #self.cmd_cam(device,subcmd)
 
+    # ----- ZOOM control (CAM_Zoom) -----
 
-    # ZOOM control
+    def cmd_cam_zoom_stop(self, device):
+        subcmd = b"\x07\x00"
+        # print('stopping zoom')
+        return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_zoom_stop(self,device):
-        subcmd=b"\x07\x00"
-        #print('stopping zoom')
-        return self.cmd_cam(device,subcmd)
+    def cmd_cam_zoom_tele(self, device):
+        subcmd = b"\x07\x02"
+        return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_zoom_tele(self,device):
-        subcmd=b"\x07\x02"
-        return self.cmd_cam(device,subcmd)
+    def cmd_cam_zoom_wide(self, device):
+        subcmd = b"\x07\x03"
+        return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_zoom_wide(self,device):
-        subcmd=b"\x07\x03"
-        return self.cmd_cam(device,subcmd)
-
-
-    def cmd_cam_zoom_tele_speed(self,device,speed):
+    def cmd_cam_zoom_tele_speed(self, device, speed):
         """
         zoom in with speed = 0..7
         """
-        sbyte=0x20+(speed&0b111)
-        subcmd=b"\x07"+bytes([sbyte])
-        return self.cmd_cam(device,subcmd)
+        sbyte = 0x20 + (speed & 0b111)
+        subcmd = b"\x07"+bytes([sbyte])
+        return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_zoom_wide_speed(self,device,speed):
+    def cmd_cam_zoom_wide_speed(self, device, speed):
         """
         zoom in with speed = 0..7
         """
-        sbyte=0x30+(speed&0b111)
-        subcmd=b"\x07"+bytes([sbyte])
-        return self.cmd_cam(device,subcmd)
+        sbyte = 0x30 + (speed & 0b111)
+        subcmd = b"\x07"+bytes([sbyte])
+        return self.cmd_cam(device, subcmd)
         
-    def cmd_cam_zoom_direct(self,device,zoom):
-        zoom_index=zoom-1
+    def cmd_cam_zoom_direct(self, device, zoom):
+        zoom_index = zoom - 1
         if zoom_index in range(len(self.ZOOM_SETTINGS)):
-            subcmd=b"\x47"+self.ZOOM_SETTINGS[zoom_index]
-            return self.cmd_cam(device,subcmd)
+            subcmd = b"\x47" + self.ZOOM_SETTINGS[zoom_index]
+            return self.cmd_cam(device, subcmd)
         else:
             print('something wrong in direct zoom values')
 
-    #Digital Zoom control on/off
-    def cmd_cam_dzoom(self,device,state):
+    # Digital Zoom
+    def cmd_cam_dzoom(self, device, state):
         if state:
-            subcmd=b"\x06\x02"
+            subcmd = b"\x06\x02"
         else:
-            subcmd=b"\x06\x03"
+            subcmd = b"\x06\x03"
+        return self.cmd_cam(device, subcmd)
 
-        return self.cmd_cam(device,subcmd)
+    def cmd_cam_dzoom_on(self, device):
+        return self.cmd_cam_dzoom(device, True)
 
-    def cmd_cam_dzoom_on(self,device):
-        return self.cmd_cam_dzoom(device,True)
+    def cmd_cam_dzoom_off(self, device):
+        return self.cmd_cam_dzoom(device, False)
 
-    def cmd_cam_dzoom_off(self,device):
-        return self.cmd_cam_dzoom(device,False)
+    # ----- FOCUS control (CAM_Focus) -----
 
+    def cmd_cam_focus_stop(self, device):
+        subcmd = b"\x08\x00"
+        # print('stopping focus')
+        return self.cmd_cam(device, subcmd)
 
-    # mirror
-    def cmd_cam_lr_reverse(self,device,mode):
-        subcmd=b"\x61"+bytes([mode])
-        return self.cmd_cam(device,subcmd)
+    def cmd_cam_focus_far(self, device):
+        subcmd = b"\x08\x02"
+        return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_lr_reverse_on(self,device):
-        return self.cmd_cam_lr_reverse(device,0x02)
+    def cmd_cam_focus_near(self, device):
+        subcmd = b"\x08\x03"
+        return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_lr_reverse_off(self,device):
-        return self.cmd_cam_lr_reverse(device,0x03)
+    def cmd_cam_focus_direct(self, device, focus):
+        if 0 <= focus <= 0xFFFF:
+            subcmd = b"\x48" + self._assign_pqrs_value(focus)
+            return self.cmd_cam(device, subcmd)
+        else:
+            print('something wrong in direct focus values')
+
+    def cmd_cam_focus_onepush_af(self, device):
+        subcmd = b"\x18\x01"
+        return self.cmd_cam(device, subcmd)
+
+    # ----- ZOOM FOCUS control (CAM_ZoomFocus) -----
+
+    def cmd_cam_zoomfocus_direct(self, device, zoom, focus):
+        if (0 <= zoom <= 0x4000) and (0 <= focus <= 0xFFFF):
+            subcmd = b"\x47" + self._assign_pqrs_value(zoom) + self._assign_pqrs_value(focus)
+            return self.cmd_cam(device, subcmd)
+        else:
+            print('something wrong in zoom focus direct values')
+
+    # ----- IRIS control (CAM_Iris) -----
+
+    def cmd_cam_iris_reset(self, device):
+        subcmd = b"\x0B\x00"
+        # print('resetting iris')
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_iris_up(self, device):
+        subcmd = b"\x0B\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_iris_down(self, device):
+        subcmd = b"\x0B\x03"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_iris_direct(self, device, iris):
+        if 0 <= iris <= 0x11:
+            subcmd = b"\x4B" + self._assign_pqrs_value(iris)
+            return self.cmd_cam(device, subcmd)
+        else:
+            print('something wrong in direct iris values')
+
+    # ----- MIRROR control (CAM_LR_Reverse) -----
+
+    def cmd_cam_lr_reverse(self, device, mode):
+        subcmd = b"\x61" + bytes([mode])
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_lr_reverse_on(self, device):
+        return self.cmd_cam_lr_reverse(device, 0x02)
+
+    def cmd_cam_lr_reverse_off(self, device):
+        return self.cmd_cam_lr_reverse(device, 0x03)
         
     # flip
     def cmd_cam_ud_reverse(self,device,mode):
@@ -640,8 +700,30 @@ class ViscaControl:
         value02 = value[0] & 0b00001111
         subcmd=b'\x4A\x00\x00'+bytes([value01])+bytes([value02])
         return self.cmd_cam(device,subcmd)
-        
-    # Aperture Control
+
+    # ----- Aperture control (CAM_Aperture) -----
+
+    def cmd_cam_aperture_reset(self, device):
+        subcmd = b"\x02\x00"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_aperture_up(self, device):
+        subcmd = b"\x02\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_aperture_down(self, device):
+        subcmd = b"\x02\x03"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_aperture_direct(self, device, aperture):
+        if 0 <= aperture <= 0x04:
+            subcmd = b"\x42" + self._assign_pqrs_value(aperture)
+            return self.cmd_cam(device, subcmd)
+        else:
+            print('something wrong in direct focus values')
+
+    # TODO : Check what it means
+    # Aperture Control (???)
     def cmd_cam_aperture_control(self,device,mode):
         step=b'\x1F'
         subcmd=b'\x1F\x02'+bytes([mode])+bytes([step])
