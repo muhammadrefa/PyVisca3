@@ -895,20 +895,19 @@ class ViscaControl:
         value02 = value[0] & 0b00001111
         subcmd=b'\x24'+register_bytes+bytes([value01])+bytes([value02])
         return self.cmd_cam(device,subcmd)
-        
-        
+
     # --------------------- Getters --------------------------------------
 
-    def cmd_inquiry(self,device,subcmd):
-        packet=b'\x09\x04'+subcmd
-        reply = self.send_packet(device,packet, inquiry = True)
-        #FIXME: check returned data here and retransmit?
+    def cmd_inquiry(self, device, subcmd):
+        packet = b'\x09\x04' + subcmd
+        reply = self.send_packet(device, packet, inquiry=True)
+        # FIXME: check returned data here and retransmit?
         return reply
         
-    def get_zoom_position(self,device):
-        subcmd=b'\x47'
+    def get_zoom_position(self, device):
+        subcmd = b'\x47'
         reply = self.cmd_inquiry(device, subcmd)
-        position = self.get_data_from_inquiry(reply)    
+        position = self.get_data_from_inquiry(reply)
         return position
         
     def keep_trying_to_get_zoom_position(self, device):
@@ -916,44 +915,44 @@ class ViscaControl:
         position = b''
         max_retries = 5
         retries = 0
-        while ((len(position) != 4) and (retries<max_retries)):
-            #print('asking zoom level')
-            subcmd=b'\x47'
+        while (len(position) != 4) and (retries < max_retries):
+            # print('asking zoom level')
+            subcmd = b'\x47'
             reply = self.cmd_inquiry(device, subcmd)
             position = self.get_data_from_inquiry(reply)    
             
-            #print('Got reply %s, position %s, retry %d' % (reply, position, retries))
+            # print('Got reply %s, position %s, retry %d' % (reply, position, retries))
             
-            #Sometimes the command just returns COMPLETION with no data.
+            # Sometimes the command just returns COMPLETION with no data.
             # In this case, we can use stop zoom cmd that kindly seems
             # to return the zoom position
-            '''
-            if len(position) != 4:
-                print('did not work. stopping zoom level')
-                reply = self.cmd_cam_zoom_stop(device)
-                position = self.get_data_from_inquiry(reply)    
-                print('Got reply %s, position %s' % (reply, position))
-            '''
-            #try again, this happens when you switch from zoom speed
+
+            # if len(position) != 4:
+            #     print('did not work. stopping zoom level')
+            #     reply = self.cmd_cam_zoom_stop(device)
+            #     position = self.get_data_from_inquiry(reply)
+            #     print('Got reply %s, position %s' % (reply, position))
+
+            # try again, this happens when you switch from zoom speed
             # to zoom absolute
             retries += 1
             
-        #print('Returing posistion %s' % position)
+        # print('Returing posistion %s' % position)
         return position
         
     def inquiry_precise_zoom_position(self, device):
-        #print('Inquiry zoom precise position')
+        # print('Inquiry zoom precise position')
         position = self.get_zoom_position(device)
-        #print('Got position %s' % position)
+        # print('Got position %s' % position)
         if len(position) != 4:
             return None
 
-        #number between 0x00000000 and 0x40000000
+        # number between 0x00000000 and 0x40000000
         pos_int = struct.unpack('>I', position)[0]
         return pos_int
 
     def inquiry_combined_zoom_pos(self, device):
-        #self.DEBUG = True
+        # self.DEBUG = True
         position = self.get_zoom_position(device)
         if len(position) != 4:
             return None
@@ -975,9 +974,9 @@ class ViscaControl:
             
         #self.DEBUG = True
         return pos
-        
+
     def inquiry_mirror_mode(self, device):
-        subcmd=b'\x61'
+        subcmd = b'\x61'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         if mode == b'\x02':
@@ -986,7 +985,7 @@ class ViscaControl:
             return False
             
     def inquiry_flip_mode(self, device):
-        subcmd=b'\x66'
+        subcmd = b'\x66'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         if mode == b'\x02':
@@ -994,8 +993,8 @@ class ViscaControl:
         if mode == b'\x03':
             return False
             
-    def inquiry_negative_mode(self,device):
-        subcmd=b'\x63'
+    def inquiry_negative_mode(self, device):
+        subcmd = b'\x63'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         if mode == b'\x02':
@@ -1003,40 +1002,43 @@ class ViscaControl:
         else:
             return False
             
-    def inquiry_blackwhite_mode(self,device):
-        subcmd=b'\x63'
+    def inquiry_blackwhite_mode(self, device):
+        subcmd = b'\x63'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         if mode == b'\x04':
             return True
         else:
             return False
-            
+
+    # ----- Backlight inquiry (CAM_BackLightModeInq) -----
     def inquiry_backlight_mode(self, device):
-        subcmd=b'\x33'
+        subcmd = b'\x33'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         if mode == b'\x02':
             return True
         elif mode == b'\x03':
             return False
-            
+
+    # ----- Hi Res mode inquiry (CAM_HRModeInq) -----
     def inquiry_hires_mode(self, device):
-        subcmd=b'\x52'
+        subcmd = b'\x52'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         if mode == b'\x02':
             return True
         elif mode == b'\x03':
             return False
-            
-    def inquiry_AEMode(self,device):
-        subcmd= b'\x39'
+
+    # ----- AE mode inquiry (CAM_AEModeInq) -----
+    def inquiry_AEMode(self, device):
+        subcmd = b'\x39'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         return mode
             
-    def inquiry_shutter_mode(self,device):
+    def inquiry_shutter_mode(self, device):
         mode = self.inquiry_AEMode(device)
         if mode == b'\x0A':
             return True
