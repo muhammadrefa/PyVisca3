@@ -504,12 +504,18 @@ class ViscaControl:
         # print('stopping zoom')
         return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_zoom_tele(self, device):
-        subcmd = b"\x07\x02"
+    def cmd_cam_zoom_tele(self, device, speed=-1):
+        if 0 <= speed <= 7:
+            subcmd = b"\x07" + (0x20 | speed).to_bytes(1, 'big')
+        else:
+            subcmd = b"\x07\x02"
         return self.cmd_cam(device, subcmd)
 
-    def cmd_cam_zoom_wide(self, device):
-        subcmd = b"\x07\x03"
+    def cmd_cam_zoom_wide(self, device, speed=-1):
+        if 0 <= speed <= 7:
+            subcmd = b"\x07" + (0x30 | speed).to_bytes(1, 'big')
+        else:
+            subcmd = b"\x07\x03"
         return self.cmd_cam(device, subcmd)
 
     def cmd_cam_zoom_tele_speed(self, device, speed):
@@ -570,6 +576,20 @@ class ViscaControl:
         else:
             subcmd = b"\x08\x03"
         return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_focus_far_speed(self, device, speed):
+        """
+        zoom in with speed = 0..7
+        """
+        speed = speed & 0b111
+        return self.cmd_cam_focus_far(device, speed)
+
+    def cmd_cam_focus_near_speed(self, device, speed):
+        """
+        zoom in with speed = 0..7
+        """
+        speed = speed & 0b111
+        return self.cmd_cam_focus_near(device, speed)
 
     def cmd_cam_focus_direct(self, device, focus):
         if 0 <= focus <= 0xFFFF:
