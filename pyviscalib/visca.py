@@ -772,23 +772,71 @@ class ViscaControl:
         return self.cmd_cam(device,subcmd)
         pass
         
-    #Exposure mode
+    # Exposure mode
     def cmd_cam_shutter_priority(self, device):
-        #self.DEBUG=True
-        subcmd=b'\x39\x0A'
-        return self.cmd_cam(device,subcmd)
+        # Maintain compatibility
+        return self.cmd_cam_ae_shutter(device)
         
     def cmd_cam_full_auto(self, device):
-        #self.DEBUG=False
-        subcmd=b'\x39\x00'
-        return self.cmd_cam(device,subcmd)
+        # Maintain compatibility
+        return self.cmd_cam_ae_auto(device)
         
     def cmd_cam_shutter_speed(self, device, value):
-        #self.DEBUG=True
-        value01 = ( value[0] & 0b11110000 ) >> 4
-        value02 = value[0] & 0b00001111
-        subcmd=b'\x4A\x00\x00'+bytes([value01])+bytes([value02])
-        return self.cmd_cam(device,subcmd)
+        # Maintain compatibility
+        return self.cmd_cam_shutter_direct(device, value)
+
+    # ----- Auto exposure control (CAM_AE) -----
+
+    def cmd_cam_ae_auto(self, device):
+        subcmd = b"\x39\x00"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_ae_manual(self, device):
+        subcmd = b"\x39\x03"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_ae_shutter(self, device):
+        subcmd = b"\x39\x0A"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_ae_iris(self, device):
+        subcmd = b"\x39\x0B"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_ae_bright(self, device):
+        subcmd = b"\x39\x0D"
+        return self.cmd_cam(device, subcmd)
+
+    # ----- Slow shutter control (CAM_SlowShutter) -----
+
+    def cmd_cam_slowshutter_auto(self, device):
+        subcmd = b"\x5A\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_slowshutter_manual(self, device):
+        subcmd = b"\x5A\x03"
+        return self.cmd_cam(device, subcmd)
+
+    # ----- Shutter control (CAM_Shutter) -----
+
+    def cmd_cam_shutter_reset(self, device):
+        subcmd = b"\x0A\x00"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_shutter_up(self, device):
+        subcmd = b"\x0A\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_shutter_down(self, device):
+        subcmd = b"\x0A\x03"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_shutter_direct(self, device, shutter):
+        if 0 <= shutter <= 0xFF:
+            subcmd = b"\x4A" + self._assign_pqrs_value(shutter)
+            return self.cmd_cam(device, subcmd)
+        else:
+            print('something wrong in shutter direct values')
 
     # ----- Aperture control (CAM_Aperture) -----
 
