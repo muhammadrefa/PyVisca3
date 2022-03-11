@@ -456,35 +456,34 @@ class ViscaControl:
 
     # ----------------------- Setters -------------------------------------
 
+    # ----- POWER control (CAM_Power) -----
 
-    # POWER control
-
-    def cmd_cam_power(self,device,onoff):
+    def cmd_cam_power(self, device, onoff):
         if onoff:
-            pwr=b'\x00\x02'
+            pwr = b'\x00\x02'
         else:
-            pwr=b'\x00\x03'
-        return self.cmd_cam(device,pwr)
+            pwr = b'\x00\x03'
+        return self.cmd_cam(device, pwr)
 
-    def cmd_cam_power_on(self,device):
-        return self.cmd_cam_power(device,True)
+    def cmd_cam_power_on(self, device):
+        return self.cmd_cam_power(device, True)
 
-    def cmd_cam_power_off(self,device):
-        return self.cmd_cam_power(device,False)
+    def cmd_cam_power_off(self, device):
+        return self.cmd_cam_power(device, False)
         
     # Store Custom presets
 
     def cmd_cam_reset_custom_preset(self, device):
-        subcmd=b"\x3f\x00\x7f"
-        return self.cmd_cam(device,subcmd)    
+        subcmd = b"\x3f\x00\x7f"
+        return self.cmd_cam(device, subcmd)
 
     def cmd_cam_set_custom_preset(self, device):
-        subcmd=b"\x3f\x01\x7f"
-        return self.cmd_cam(device,subcmd)
+        subcmd = b"\x3f\x01\x7f"
+        return self.cmd_cam(device, subcmd)
         
     def cmd_cam_recall_custom_preset(self, device):
-        subcmd=b"\x3f\x02\x7f"
-        return self.cmd_cam(device,subcmd)
+        subcmd = b"\x3f\x02\x7f"
+        return self.cmd_cam(device, subcmd)
 
 
     #FIXME
@@ -605,6 +604,12 @@ class ViscaControl:
             subcmd = b"\x38\x03"
         return self.cmd_cam(device, subcmd)
 
+    def cmd_cam_focus_af_on(self, device):
+        return self.cmd_cam_focus_af(device, True)
+
+    def cmd_cam_focus_af_off(self, device):
+        return self.cmd_cam_focus_af(device, False)
+
     def cmd_cam_focus_af_toggle(self, device):
         subcmd = b"\x38\x10"
         return self.cmd_cam(device, subcmd)
@@ -619,6 +624,45 @@ class ViscaControl:
 
     def cmd_cam_focus_near_limit(self, device, value):
         subcmd = b"\x28" + self._assign_pqrs_value(value & 0xFF00)
+        return self.cmd_cam(device, subcmd)
+
+    # ----- AF Sensitivity control -----
+
+    def cmd_cam_af_sensitivity_normal(self, device):
+        subcmd = b"\x58\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_af_sensitivity_low(self, device):
+        subcmd = b"\x58\x03"
+        return self.cmd_cam(device, subcmd)
+
+    # ----- AF Mode control (CAM_AFMode) -----
+
+    def cmd_cam_af_mode_normal(self, device):
+        subcmd = b"\x57\x00"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_af_mode_interval(self, device):
+        subcmd = b"\x57\x01"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_af_mode_zoom_trigger(self, device):
+        subcmd = b"\x57\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_af_mode_interval_time(self, device, movement_time, interval):
+        value = ((movement_time & 0x0F) << 4) | (interval & 0x0F)
+        subcmd = b"\x27" + self._assign_pqrs_value(value & 0xFF00)
+        return self.cmd_cam(device, subcmd)
+
+    # ----- IR Correction control (CAM_IRCorrection) -----
+
+    def cmd_cam_ir_correction_standard(self, device):
+        subcmd = b"\x11\x00"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_ir_correction_IRLight(self, device):
+        subcmd = b"\x11\x01"
         return self.cmd_cam(device, subcmd)
 
     # ----- ZOOM FOCUS control (CAM_ZoomFocus) -----
