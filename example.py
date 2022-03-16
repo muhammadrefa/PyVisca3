@@ -41,11 +41,11 @@ class Test():
                 
         self.v.start()
 
-        self.v.cmd_adress_set()
+        self.v.cmd_address_set()
 
         self.v.cmd_if_clear_all()
 
-        self.CAM=1
+        self.CAM = 1
         
         self.read_thread_t = threading.Thread(target = self.continuous_read)
         self.write_thread_t = threading.Thread(target = self.continuous_write)
@@ -63,7 +63,7 @@ class Test():
     def continuous_read(self):
         while not self._exit:
             zl = self.v.inquiry_combined_zoom_pos(self.CAM)
-            print('Got zoomlevel %d' %zl)
+            print('Got zoomlevel %d' % zl)
             time.sleep(0.01)
             
     def continuous_write(self):
