@@ -131,6 +131,14 @@ class ViscaControl:
         for i in range(0, 4):
             pqrs_val |= ((value & (0x0F << 4*i)) << 4*i)
         return pqrs_val.to_bytes(4, 'big')
+
+    @staticmethod
+    def _parse_pqrs_value(packet: bytes) -> int:
+        value = 0
+        for v in packet:
+            value = value << 4
+            value |= v
+        return value
         
     def start(self):
         if self.started:
@@ -939,7 +947,7 @@ class ViscaControl:
             
         # print('Returing posistion %s' % position)
         return position
-        
+
     def inquiry_precise_zoom_position(self, device):
         # print('Inquiry zoom precise position')
         position = self.get_zoom_position(device)
@@ -974,6 +982,104 @@ class ViscaControl:
             
         #self.DEBUG = True
         return pos
+
+    # ----- D-Zoom mode inquiry (CAM_DZoomModeInq) -----
+    def inquiry_dzoom_mode(self, device):
+        subcmd = b'\x06'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True
+        if mode == b'\x03':
+            return False
+
+    # ----- Power inquiry (CAM_PowerInq) -----
+    def inquiry_power(self, device):
+        subcmd = b'\x00'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True
+        if mode == b'\x03':
+            return False
+
+    # ----- Focus mode inquiry (CAM_FocusModeInq) -----
+    def inquiry_focus_mode(self, device):
+        subcmd = b'\x38'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True     # Auto Focus
+        if mode == b'\x03':
+            return False    # Manual Focus
+
+    # ----- Focus position inquiry (CAM_FocusPosInq) -----
+    def inquiry_focus_pos(self, device):
+        subcmd = b'\x48'
+        reply = self.cmd_inquiry(device, subcmd)
+        pqrs_value = self.get_data_from_inquiry(reply)
+        return self._parse_pqrs_value(pqrs_value)
+
+    # ----- Focus near limit position inquiry (CAM_FocusNearLimitInq) -----
+    def inquiry_focus_near_limit_pos(self, device):
+        subcmd = b'\x28'
+        reply = self.cmd_inquiry(device, subcmd)
+        pqrs_value = self.get_data_from_inquiry(reply)
+        return self._parse_pqrs_value(pqrs_value)
+
+    # ----- AF sensitivity inquiry (CAM_AFSensitivityInq) -----
+    def inquiry_af_sensitivity(self, device):
+        subcmd = b'\x58'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        if mode == b'\x02':
+            return True     # Normal
+        if mode == b'\x03':
+            return False    # Low
+
+    # ----- AF mode inquiry (CAM_AFModeInq) -----
+    def inquiry_af_mode(self, device):
+        subcmd = b'\x57'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        return mode
+
+    # ----- AF time setting inquiry (CAM_AFTimeSettingInq) -----
+    def inquiry_af_time_setting(self, device):
+        subcmd = b'\x27'
+        reply = self.cmd_inquiry(device, subcmd)
+        pqrs_value = self.get_data_from_inquiry(reply)
+        movement_time = self._parse_pqrs_value(pqrs_value[:2])
+        interval = self._parse_pqrs_value(pqrs_value[2:4])
+        return movement_time, interval
+
+    # ----- IR Correction inquiry (CAM_IRCorrectionInq) -----
+    def inquiry_ir_correction(self, device):
+        subcmd = b'\x11'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        return mode
+
+    # ----- WB Mode inquiry (CAM_WBModeInq) -----
+    def inquiry_wb_mode(self, device):
+        subcmd = b'\x35'
+        reply = self.cmd_inquiry(device, subcmd)
+        mode = self.get_data_from_inquiry(reply)
+        return mode
+
+    # ----- R Gain inquiry (CAM_RGainInq) -----
+    def inquiry_r_gain(self, device):
+        subcmd = b'\x43'
+        reply = self.cmd_inquiry(device, subcmd)
+        pqrs_value = self.get_data_from_inquiry(reply)
+        return self._parse_pqrs_value(pqrs_value)
+
+    # ----- B Gain inquiry (CAM_BGainInq) -----
+    def inquiry_b_gain(self, device):
+        subcmd = b'\x44'
+        reply = self.cmd_inquiry(device, subcmd)
+        pqrs_value = self.get_data_from_inquiry(reply)
+        return self._parse_pqrs_value(pqrs_value)
 
     def inquiry_mirror_mode(self, device):
         subcmd = b'\x61'
@@ -1032,11 +1138,16 @@ class ViscaControl:
             return False
 
     # ----- AE mode inquiry (CAM_AEModeInq) -----
-    def inquiry_AEMode(self, device):
+    # For consistency
+    def inquiry_ae_mode(self, device):
         subcmd = b'\x39'
         reply = self.cmd_inquiry(device, subcmd)
         mode = self.get_data_from_inquiry(reply)
         return mode
+
+    def inquiry_AEMode(self, device):
+        # Maintain compatibility
+        return self.inquiry_ae_mode(device)
             
     def inquiry_shutter_mode(self, device):
         mode = self.inquiry_AEMode(device)
