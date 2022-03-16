@@ -549,7 +549,8 @@ class ViscaControl:
         else:
             print('something wrong in direct zoom values')
 
-    # Digital Zoom
+    # ----- Digital Zoom control (CAM_DZoom) -----
+
     def cmd_cam_dzoom(self, device, state):
         if state:
             subcmd = b"\x06\x02"
@@ -682,6 +683,32 @@ class ViscaControl:
         else:
             print('something wrong in zoom focus direct values')
 
+    # ----- WB control (CAM_WB) -----
+
+    def cmd_cam_wb_auto(self, device):
+        subcmd = b"\x35\x00"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_wb_indoor(self, device):
+        subcmd = b"\x35\x01"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_wb_outdoor(self, device):
+        subcmd = b"\x35\x02"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_wb_onepush_wb(self, device):
+        subcmd = b"\x35\x03"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_wb_manual(self, device):
+        subcmd = b"\x35\x05"
+        return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_wb_onepush_wb_trigger(self, device):
+        subcmd = b"\x10\x05"
+        return self.cmd_cam(device, subcmd)
+
     # ----- IRIS control (CAM_Iris) -----
 
     def cmd_cam_iris_reset(self, device):
@@ -738,46 +765,57 @@ class ViscaControl:
     def cmd_cam_stabilization_off(self,device):
         return self.cmd_cam_stabilization(device,0x03)
         
-    # Backlight compensation
+    # ----- Backlight compensation (CAM_BackLight) -----
+
+    def cmd_cam_backlight(self, device, compensate: bool):
+        if compensate:
+            return self.cmd_cam_backlight_set(device, 0x02)
+        else:
+            return self.cmd_cam_backlight_set(device, 0x03)
     
     def cmd_cam_backlight_set(self, device, mode):
-        subcmd=b'\x33'+bytes([mode])
+        subcmd = b'\x33' + bytes([mode])
         return self.cmd_cam(device, subcmd)
-        
-    def cmd_cam_backlight_off(self, device):
-        return self.cmd_cam_backlight_set(device, 0x03)
-        
+
     def cmd_cam_backlight_on(self, device):
-        return self.cmd_cam_backlight_set(device, 0x02)
-        
-        
-    # High Resolution
+        return self.cmd_cam_backlight(device, True)
+
+    def cmd_cam_backlight_off(self, device):
+        return self.cmd_cam_backlight(device, False)
+
+    # ----- High Resolution (CAM_HR) -----
+
+    def cmd_cam_hires(self, device, enable: bool):
+        if enable:
+            return self.cmd_cam_hires_set(device, 0x02)
+        else:
+            return self.cmd_cam_hires_set(device, 0x03)
     
     def cmd_cam_hires_set(self, device, mode):
         subcmd=b'\x52'+bytes([mode])
         return self.cmd_cam(device, subcmd)
+
+    def cmd_cam_hires_on(self, device):
+        return self.cmd_cam_hires(device, True)
         
     def cmd_cam_hires_off(self, device):
-        return self.cmd_cam_hires_set(device, 0x03)
-        
-    def cmd_cam_hires_on(self, device):
-        return self.cmd_cam_hires_set(device, 0x02)
+        return self.cmd_cam_hires(device, False)
     
-    # Picture Effect
+    # ----- Picture Effect (CAM_PictureEffect) -----
     
     def cmd_cam_effect_negative(self, device):
         subcmd = b'\x63\x02'
-        return self.cmd_cam(device,subcmd)
+        return self.cmd_cam(device, subcmd)
         pass
         
     def cmd_cam_effect_blackwhite(self, device):
         subcmd = b'\x63\x04'
-        return self.cmd_cam(device,subcmd)
+        return self.cmd_cam(device, subcmd)
         pass
         
     def cmd_cam_effect_off(self, device):
         subcmd = b'\x63\x00'
-        return self.cmd_cam(device,subcmd)
+        return self.cmd_cam(device, subcmd)
         pass
         
     # Exposure mode
